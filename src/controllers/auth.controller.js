@@ -8,6 +8,17 @@ const authControllerFactory = (authService) =>  {
                 }
                 return res.status(400).json(result)
             } catch (err) { next(err) }
+        },
+
+        async verify(req, res, next) {
+            try {
+                const result = await authService.verify(req.params)
+                if (result.success) {
+                    return res.json(result)
+                } else {
+                    return res.status(400).json(result)
+                }
+            } catch (err) { next(err) }
         }
     }
 }

@@ -9,7 +9,10 @@ const tokenVerificationRepoFactory = (pool) => {
 
         async getVerificationToken(token, id) {
             const result = await pool.query(`
-                SELECT * FROM verification_token WHERE token = $1 AND user_id = $2
+                SELECT * FROM verification_token
+                INNER JOIN users
+                ON verification_token.user_id = users.id
+                WHERE token = $1 AND user_id = $2
                 `, [token, id])
             return result.rows[0] ?? null
         }
