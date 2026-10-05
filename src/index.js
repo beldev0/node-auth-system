@@ -1,11 +1,14 @@
 require('dotenv').config()
 const express = require('express')
+const cookieParser = require('cookie-parser')
 
 const { createPublicsFolder } = require('./config/bootstrap.js')
 const { getUploadDirPath } = require('./utils/pathHelpers.js')
 const globalErrorMiddleware = require('./middlewares/globalError.middleware.js')
 const authRouter = require('./routes/auth.route.js')
 const app = express();
+
+app.use(cookieParser())
 
 app.use(express.json())
 
@@ -21,8 +24,7 @@ app.all('{/*any}', (req, res) => {
 
 app.use(globalErrorMiddleware)
 
-const PORT  = process.env.PORT || 3000
-
 createPublicsFolder()
 
+const PORT  = process.env.PORT || 3000
 app.listen(PORT, () => console.log("App is running "));
