@@ -6,7 +6,7 @@ const { sendVerificationEmail } = require('./../utils/mailHelpers.js')
 const path = require('path')
 const jwtUtils = require('../utils/jwtUtils.js')
 
-const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository) => {
+const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo) => {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
     return {
         async register(data, profil = null) {
@@ -139,10 +139,11 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                 if (!user.profil.startsWith('https://')) {
                     user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
                 }
-
+                await loginHistoryRepo.createHistory({...metadata, success:true, user_id:user.id})
                 return { success: true, data: { user, accessToken }, refreshToken }
 
             } else {
+                await loginHistoryRepo.createHistory({...metadata, success:false, user_id:user.id})
                 return { success: false, error: "Email or password are invalid" } // Mitigation 
             }
         }

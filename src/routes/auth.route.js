@@ -7,6 +7,7 @@ const uploader = require('./../config/multer.js')
 
 const authServiceFactory = require('./../services/auth.service.js')
 const tokenVerificationRepoFactory = require('./../repositories/tokenVerifcation.repository.js')
+const loginHistoryRepoFactory = require('./../repositories/loginHistory.repository.js')
 const userRepoFactory = require('./../repositories/user.repository.js')
 const refreshTokenRepoFactory = require('./../repositories/refreshtoken.repository.js')
 const authControllerFactory = require('./../controllers/auth.controller.js')
@@ -14,7 +15,8 @@ const authControllerFactory = require('./../controllers/auth.controller.js')
 const userRepo = userRepoFactory(pool)
 const refreshTokenRepo = refreshTokenRepoFactory(pool)
 const tokenVerificationRepo = tokenVerificationRepoFactory(pool)
-const authService = authServiceFactory(userRepo, tokenVerificationRepo, refreshTokenRepo)
+const loginHistoryRepo = loginHistoryRepoFactory(pool)
+const authService = authServiceFactory(userRepo, tokenVerificationRepo, refreshTokenRepo, loginHistoryRepo)
 const authController = authControllerFactory(authService)
 
 
