@@ -21,6 +21,16 @@ const authControllerFactory = (authService) =>  {
             } catch (err) { next(err) }
         },
 
+        async resend_verification_mail(req, res, next) {
+            try {
+                const result = await authService.resend_verification_mail(req.params.id)
+                if (result.success) {
+                    return res.json(result)
+                }
+                return res.status(400).json(result)
+            } catch (err) { next(err) }
+        },
+
         async login(req, res, next) {
             try {
                 const credentials = req.body

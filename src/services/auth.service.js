@@ -55,7 +55,7 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             return {
                 success: true, data: {
                     user,
-                    message: "Verfication email sent !"
+                    message: "Verification email sent !"
                 }
             }
         },
@@ -79,6 +79,36 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             return { "success": false, error: "Link already expired. Ask for new !" }
         },
 
+        async resend_verification_mail(user_id) {
+            const user = await userRepository.getUserById(user_id)
+            if (!user) {
+                return { success: false, error: "User not found" }
+            }
+            if (user) {
+                if (user.email_verified_at) {
+                    return { success: false, error: "Your account is already verified" }
+                }
+
+                const token = crypto.randomBytes(16).toString('hex')
+                console.log("Token", token);
+
+                const expires_at = new Date()
+                expires_at.setMinutes(expires_at.getMinutes() + 15)
+                console.log(expires_at.getTime());
+
+                const verificationObj = { token, user_id: user.id, expires_at }
+                await tokenVerificationRepo.createTokenVerification(verificationObj)
+
+                const href = `http://${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
+                console.log(href);
+
+                const username = `${user.firstname} ${user.lastname}`
+                await sendVerificationEmail(user.email, href, username)
+                
+                return { success:true, message: "Verification email sent !" }
+            }
+        },
+
         async login(credentials, metadata) {
             const { email, password } = credentials
 
@@ -89,6 +119,10 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
 
             if (user.disabled_at) {
                 return { success: false, error: "Your account is currently disabled" }
+            }
+
+            if (!user.email_verified_at) {
+                return { success: false, error: "Your account is not verified" }
             }
 
             if (bcrypt.compare(password, user.password)) {
@@ -106,7 +140,7 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                     user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
                 }
 
-                return {success:true, data : { user, accessToken }, refreshToken}
+                return { success: true, data: { user, accessToken }, refreshToken }
 
             } else {
                 return { success: false, error: "Email or password are invalid" } // Mitigation 

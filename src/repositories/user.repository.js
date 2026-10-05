@@ -15,6 +15,13 @@ function userRepoFactory(pool) {
             return result.rows[0] ?? null
         },
 
+        async getUserById(id) {
+            const result = await pool.query(`
+                SELECT * FROM users WHERE id = $1
+                `, [id]);
+            return result.rows[0] ?? null
+        },
+
         async verifyUser(id) {
             const result = await pool.query(`
                 UPDATE users SET email_verified_at = NOW() WHERE id = $1

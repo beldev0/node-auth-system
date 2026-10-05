@@ -20,6 +20,6 @@ const authController = authControllerFactory(authService)
 
 router.post('/register', uploader.single('profil'), validatorMiddleware(userValidator.create),  authController.register)
 router.post('/login', uploader.none() , validatorMiddleware(userValidator.login), authController.login)
+router.post('/:id/resend-verification-mail', authController.resend_verification_mail)
 router.get('/:id/verify/:token', authController.verify)
-
 module.exports = router
