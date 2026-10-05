@@ -10,7 +10,14 @@ function refreshTokenRepoFactory (pool) {
         async revokeRefreshToken(token) {
             const result = await pool.query(`UPDATE refresh_token SET revoked_at = NOW() WHERE token = $1 RETURNING *`, [token])
             return result.rows[0]
-        } 
+        },
+
+        async getRefreshToken(token) {
+            const result = await pool.query(`
+                SELECT revoked_at, user_id FROM refresh_token WHERE token = $1
+                `, [token])
+            return result.rows[0]
+        }
     }
 }
 
