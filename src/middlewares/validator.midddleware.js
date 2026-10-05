@@ -5,7 +5,7 @@ const validatorMiddleware = (schema) => {
         const result = schema.safeParse(req.body)
         if (!result.success) {
             const errors = result.error.flatten().fieldErrors
-            next({statusCode:400, name: "Input Validation", errors})
+            next({statusCode:400, name: "Custom Error", errors})
         } else {
             req.body = result.data
             next()
