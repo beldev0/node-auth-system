@@ -15,7 +15,7 @@ export const up = (pgm) => {
             success BOOLEAN,
             ip_address TEXT,
             user_agent TEXT,
-            user_id BIGINT CONSTRAINT fk_user REFERENCES users(id),
+            user_id BIGINT NOT NULL CONSTRAINT fk_user REFERENCES users(id) ON DELETE CASCADE,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
         `)

@@ -18,7 +18,7 @@ export const up = (pgm) => {
             expires_at TIMESTAMPTZ NOT NULL,
             revoked_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ DEFAULT NOW(),
-            user_id BIGINT CONSTRAINT fk_user_id REFERENCES users(id)
+            user_id BIGINT NOT NULL CONSTRAINT fk_user_id REFERENCES users(id) ON DELETE CASCADE
         )
     `)
 };
