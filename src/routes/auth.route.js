@@ -6,17 +6,20 @@ const validatorMiddleware = require('./../middlewares/validator.midddleware.js')
 const uploader = require('./../config/multer.js')
 
 const authServiceFactory = require('./../services/auth.service.js')
-const tokenRefreshRepoFactory = require('./../repositories/tokenVerifcation.repository.js')
+const tokenVerificationRepoFactory = require('./../repositories/tokenVerifcation.repository.js')
 const userRepoFactory = require('./../repositories/user.repository.js')
+const refreshTokenRepoFactory = require('./../repositories/refreshtoken.repository.js')
 const authControllerFactory = require('./../controllers/auth.controller.js')
 
 const userRepo = userRepoFactory(pool)
-const tokenRefreshRepo = tokenRefreshRepoFactory(pool)
-const authService = authServiceFactory(userRepo, tokenRefreshRepo)
+const refreshTokenRepo = refreshTokenRepoFactory(pool)
+const tokenVerificationRepo = tokenVerificationRepoFactory(pool)
+const authService = authServiceFactory(userRepo, tokenVerificationRepo, refreshTokenRepo)
 const authController = authControllerFactory(authService)
 
 
 router.post('/register', uploader.single('profil'), validatorMiddleware(userValidator.create),  authController.register)
+router.post('/login', uploader.none() , validatorMiddleware(userValidator.login), authController.login)
 router.get('/:id/verify/:token', authController.verify)
 
 module.exports = router

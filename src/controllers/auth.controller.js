@@ -19,6 +19,26 @@ const authControllerFactory = (authService) =>  {
                     return res.status(400).json(result)
                 }
             } catch (err) { next(err) }
+        },
+
+        async login(req, res, next) {
+            try {
+                const credentials = req.body
+                const metadata = {ip_address : req.ip, user_agent : req.headers['user-agent']}
+                const result = await authService.login(credentials, metadata)
+                if (result.success) {                    
+                    res.cookie('refreshToken', result.refreshToken, {
+                        maxAge: 7 * 24 * 60 * 60 * 1000,
+                        httpOnly: true,
+                        path: '/auth/refresh',
+                        secure :  process.env.NODE_ENV == 'production',
+                        sameSite : 'Lax'
+                    })
+                   return res.json({success:true, data:result.data})
+                } else {
+                    return res.status(400).json(result)
+                }
+            } catch (err) { next(err) }
         }
     }
 }

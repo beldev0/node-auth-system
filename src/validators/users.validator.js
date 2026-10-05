@@ -16,6 +16,11 @@ const userValidator = {
         email : z.email("Email is required"),
         lastname : z.string().min(2, "2 characters is required"),
         firstname : z.string().min(2, "2 characters is required"),
+    }),
+
+    login : z.object({
+        email : z.email(),
+        password : z.string("Password is required")
     })
 }
 
