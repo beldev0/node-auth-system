@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer')
-console.log(process.env.SMTP_PASS, process.env.SMTP_USER);
 
 const transporter = nodemailer.createTransport({
     // host : process.env.SMTP_HOST,
