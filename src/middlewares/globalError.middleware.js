@@ -3,7 +3,7 @@ const multer = require("multer");
 const globalErrorMiddleware = (err, req, res, next) => {
     if (err) {
         console.log(err);
-        if (err.name && err.name === "Input Validation") {
+        if (err.name && err.name == "Custom Error") {            
             return res.status(err.statusCode).json({"success":false, errors:err.errors})
         }
 
@@ -11,10 +11,12 @@ const globalErrorMiddleware = (err, req, res, next) => {
             if(err.code == 'LIMIT_UNEXPECTED_FILE') {
                 return res.status(400).json({"success":false, errors:[`Unexpected field '${err.field}'`]})
             }
+            
             if (err.code == 'LIMIT_FILE_SIZE') {
                 return res.status(413).json({"success":false, errors:["Profil image too large. 5MB is max"]})
             }
         }
+
         if (err.constraint) {
             switch (err.constraint) {
                 case 'pk_user' : 
