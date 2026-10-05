@@ -89,7 +89,7 @@ const emailVerificationTemplate = (name, href) => {
       <a href="${href}" class="btn">Confirmer mon e-mail</a>
 
       <p style="margin-top: 30px; font-size: 13px; color: #6b7280;">
-        Ce lien expirera dans 24 heures. Si vous n'avez pas créé de compte, vous pouvez ignorer ce message.
+        Ce lien expirera dans 15 minutes.
       </p>
     </div>
 
