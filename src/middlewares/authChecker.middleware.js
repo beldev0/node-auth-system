@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 
 const authCheckerMiddleware = (blacklistRepo) => {
     return async (req, res, next) => {
-        const authorizationHeaders = req.headers.authorization
+        const authorizationHeaders = req.headers.authorization || ''
         const [schema, token] = authorizationHeaders.split(' ')
 
         if (!schema || !token) {
