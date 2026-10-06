@@ -2,11 +2,11 @@ const bcrypt = require('bcryptjs')
 const crypto = require('crypto')
 const fsp = require('fs/promises')
 const { getUploadDirPath } = require('./../utils/pathHelpers')
-const { sendVerificationEmail } = require('./../utils/mailHelpers.js')
+const { sendVerificationEmail, sendResetPasswordEmail } = require('./../utils/mailHelpers.js')
 const path = require('path')
 const jwtUtils = require('../utils/jwtUtils.js')
 
-const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo) => {
+const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo, resetPasswordRepo) => {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
     return {
         async register(data, profil = null) {
@@ -27,30 +27,23 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
 
             delete data['confirm_password']
             let password = data['password']
-            console.log("password " + password);
             password = await bcrypt.hash(password, 10)
-            console.log("password hashed " + password);
             data['password'] = password
 
-
             const user = await userRepository.createUser({ ...data, profil: filename ?? null })
-            console.log(user);
 
             if (!user.profil.startsWith('https://')) {
                 user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
             }
             const token = crypto.randomBytes(16).toString('hex')
-            console.log("Token", token);
 
             const expires_at = new Date()
             expires_at.setMinutes(expires_at.getMinutes() + 15)
-            console.log(expires_at.getTime());
 
             const verificationObj = { token, user_id: user.id, expires_at }
             await tokenVerificationRepo.createTokenVerification(verificationObj)
 
             const href = `http://${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
-            console.log(href);
 
             const username = `${user.firstname} ${user.lastname}`
             await sendVerificationEmail(user.email, href, username)
@@ -65,7 +58,6 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
 
         async verify({ id, token }) {
             const verificationLine = await tokenVerificationRepo.getVerificationToken(token, id)
-            // console.log(verificationLine);
 
             if (!verificationLine) {
                 return { "success": false, error: "User ID or token invalid" }
@@ -93,7 +85,6 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                 }
 
                 const token = crypto.randomBytes(16).toString('hex')
-                console.log("Token", token);
 
                 const expires_at = new Date()
                 expires_at.setMinutes(expires_at.getMinutes() + 15)
@@ -103,7 +94,6 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                 await tokenVerificationRepo.createTokenVerification(verificationObj)
 
                 const href = `http://${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
-                console.log(href);
 
                 const username = `${user.firstname} ${user.lastname}`
                 await sendVerificationEmail(user.email, href, username)
@@ -116,6 +106,7 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             const { email, password } = credentials
 
             const user = await userRepository.getUserByEmail(email)
+
             if (!user) {
                 return { success: false, error: "Email or password are invalid" }
             }
@@ -128,9 +119,10 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                 return { success: false, error: "Your account is not verified" }
             }
 
-            if(!user.nbre_session < 2) {
+            if (user.nbre_session == 2) {
                 return { success: false, error: "You already have 2 sessions ongoing." }
             }
+
 
             if (bcrypt.compare(password, user.password)) {
                 const payload = { email: user.email, id: user.id }
@@ -171,6 +163,36 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             await blacklistedTokenRepo.addBlacklistedToken({ token: accessToken, user_id: refreshTokenLine.user_id, expires_at })
             await tokenRefreshRepository.revokeRefreshToken(hashed)
             return { success: true, message: "You're no longer connect !" }
+        },
+
+        async forgotPassword(email) {
+            const user = await userRepository.getUserByEmail(email)            
+            if (user) {
+                const token = crypto.randomBytes(12).toString('hex')
+                const expires_at = new Date()
+                expires_at.setMinutes(expires_at.getMinutes() + 15)
+                await sendResetPasswordEmail(to = user.email, code = token)
+                await resetPasswordRepo.createResetToken({ token, user_id: user.id, expires_at })
+                return { success: true, data: { user_id: user.id, message: "Reset password email successfully sent !" } }
+            }
+            return { success: false, message: "Account not found !" }
+
+        },
+
+        async resetPassword({ token, newPassword, user_id }) {            
+            const tokenLine = await resetPasswordRepo.getResetToken({ token, user_id })
+            
+            if (!tokenLine) {
+                return { success: false, errors: ["User ID or token invalid"] }
+            }
+
+            if (!(tokenLine.expires_at.getTime() > Date.now())) {
+                return { success: false, errors: ["Reset token already expired"] }
+            }
+
+            const hashPassword = await bcrypt.hash(newPassword, 10)
+            await userRepository.updatePassword(user_id, hashPassword)
+            return { success: true, message: "Password successfully reset !" }
         }
     }
 }

@@ -63,6 +63,24 @@ const authControllerFactory = (authService) => {
                 return res.status(400).json(result)
 
             } catch (err) { next(err) }
+        },
+
+        async forgotPassword(req, res, next) {
+            try {
+                const result = await authService.forgotPassword(req.body.email)
+                if (result.success) {
+                    return res.json(result)
+                }
+                return res.status(404).json(result)
+
+            } catch (err) { next(err) }
+        },
+
+        async resetPassword(req, res, next) {            
+            try {
+                const result = await authService.resetPassword(req.body)
+                return res.json(result)
+            } catch (err) { next(err) }
         }
     }
 }
