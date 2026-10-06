@@ -21,6 +21,16 @@ const userValidator = {
     login : z.object({
         email : z.email(),
         password : z.string("Password is required")
+    }),
+
+    forgotPassword : z.object({
+        email : z.email()
+    }),
+
+    resetPassword : z.object({
+        token : z.string(),
+        user_id : z.string().or(z.int().positive()),
+        newPassword : z.string().min(8, "8 characters min is required")
     })
 }
 
