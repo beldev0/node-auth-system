@@ -10,12 +10,30 @@ function userRepoFactory(pool) {
 
         async getUserByEmail(email) {
             const result = await pool.query(`
-                SELECT u.email, u.profil, u.lastname, u.firstname, u.created_at, u.disabled_at, u.email_verified_at, count(rf.id) nbre_session
+                SELECT  u.email,
+                        u.profil,
+                        u.lastname, 
+                        u.id,
+                        u.password,
+                        u.firstname, 
+                        u.created_at, 
+                        u.disabled_at, 
+                        u.email_verified_at, 
+                        count(rf.id) nbre_session
                 FROM users u
                 LEFT JOIN refresh_token rf
                 ON u.id = rf.user_id
-                WHERE u.email = $1 AND rf.revoked_at IS NULL AND rf.expires_at > NOW()
-                GROUP BY u.email, u.profil, u.lastname, u.firstname, u.created_at, u.disabled_at, u.email_verified_at;
+                AND rf.revoked_at IS NULL AND rf.expires_at > NOW()
+                WHERE u.email = $1 
+                GROUP BY u.email,
+                         u.profil, 
+                         u.lastname, 
+                         u.firstname, 
+                         u.created_at, 
+                         u.disabled_at, 
+                         u.email_verified_at, 
+                         u.password,
+                         u.id;
                 `, [email]);
             return result.rows[0] ?? null
         },
@@ -31,6 +49,13 @@ function userRepoFactory(pool) {
             const result = await pool.query(`
                 UPDATE users SET email_verified_at = NOW() WHERE id = $1
                 `, [id])
+            return result.rowsCount
+        },
+        
+        async updatePassword(user_id, password) {
+            const result = await pool.query(`
+                UPDATE users SET password = $1 WHERE id = $2
+                `, [password, user_id])
             return result.rowsCount
         }
     }
