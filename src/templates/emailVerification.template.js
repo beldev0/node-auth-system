@@ -77,7 +77,7 @@ const emailVerificationTemplate = (name, href) => {
 
   <div class="container">
     <div class="header">
-      <h1>MonApplication</h1>
+      <h1>ACCOUNT VALIDATION</h1>
     </div>
 
     <div class="content">
@@ -94,7 +94,7 @@ const emailVerificationTemplate = (name, href) => {
     </div>
 
     <div class="footer">
-      <p>© 2026 MonApplication. Tous droits réservés.</p>
+      <p>© 2026 AUTH_SYSTEM_NODE_JS. Tous droits réservés.</p>
       <p>Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>
         <a href="${href}">${href}</a>
       </p>
