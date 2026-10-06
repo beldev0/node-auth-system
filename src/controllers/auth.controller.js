@@ -58,6 +58,7 @@ const authControllerFactory = (authService) => {
                 const accessToken = req.headers.authorization.split(' ').at(-1)
                 const result = await authService.logout({ refreshToken, accessToken, exp: req.user.exp })
                 if (result.success) {
+                    res.clearCookie(refreshToken)
                     return res.json(result)
                 }
                 return res.status(400).json(result)
@@ -80,6 +81,21 @@ const authControllerFactory = (authService) => {
             try {
                 const result = await authService.resetPassword(req.body)
                 return res.json(result)
+            } catch (err) { next(err) }
+        },
+
+        async refresh(req, res, next) {
+            const refreshToken = req.cookies?.refreshToken
+            if (!refreshToken) {
+                return res.status(401).json({success:false, error:["You have to include cookie"]})
+            }
+            try {
+                const result = await authService.refresh(refreshToken)
+                if (result.success) {
+                    res.json(result)
+                } else {
+                    res.status(401).json(result)
+                }
             } catch (err) { next(err) }
         }
     }

@@ -5,6 +5,7 @@ const { getUploadDirPath } = require('./../utils/pathHelpers')
 const { sendVerificationEmail, sendResetPasswordEmail } = require('./../utils/mailHelpers.js')
 const path = require('path')
 const jwtUtils = require('../utils/jwtUtils.js')
+const jwt = require('jsonwebtoken')
 
 const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo, resetPasswordRepo) => {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
@@ -193,6 +194,27 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             const hashPassword = await bcrypt.hash(newPassword, 10)
             await userRepository.updatePassword(user_id, hashPassword)
             return { success: true, message: "Password successfully reset !" }
+        },
+
+        async refresh(refreshToken) {
+            const hashedToken = jwtUtils.hashToken(refreshToken)
+            const refreshTokenLine = await tokenRefreshRepository.getRefreshToken(hashedToken)
+            if (!refreshTokenLine) {
+                return {success:false, error : ['Received invalid refresh token']}
+            }
+
+            if (refreshTokenLine.revoked_at) {
+                return {success:false, error : ['Token already revoked']}
+            }
+
+            if (refreshTokenLine.expires_at.getTime() < Date.now()) {
+                return {success:false, error : ['Log in. Token expired !']}
+            }
+
+            const decoded = jwt.decode(refreshToken, process.env.REFRESH_TOKEN_SECRET)
+            const payload = {id : decoded.id, email:decoded.email}
+            const accessToken = jwtUtils.getAccessToken(payload)
+            return {success:true, accessToken:accessToken}
         }
     }
 }

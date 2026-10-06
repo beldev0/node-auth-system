@@ -14,7 +14,7 @@ function refreshTokenRepoFactory (pool) {
 
         async getRefreshToken(token) {
             const result = await pool.query(`
-                SELECT revoked_at, user_id FROM refresh_token WHERE token = $1
+                SELECT revoked_at, expires_at, user_id FROM refresh_token WHERE token = $1
                 `, [token])
             return result.rows[0]
         }
