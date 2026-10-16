@@ -7,7 +7,7 @@ const path = require('path')
 const jwtUtils = require('../utils/jwtUtils.js')
 const jwt = require('jsonwebtoken')
 
-const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo, resetPasswordRepo) => {
+const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo, resetPasswordRepo, oAuthAccountRepo) => {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
     return {
         async register(data, profil = null) {
@@ -215,7 +215,43 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             const payload = {id : decoded.id, email:decoded.email}
             const accessToken = jwtUtils.getAccessToken(payload)
             return {success:true, accessToken:accessToken}
-        }
+        },
+
+        async oauthRegistering(data, metadata) {
+            let user = await userRepository.getUserByEmail(data.email)
+            if (!user) {
+                const randomPassword = crypto.randomBytes(8).toString('hex')
+                const hashPassword = await bcrypt.hash(randomPassword, 10)
+                const userInfos = {
+                    lastname            : data.family_name,
+                    firstname           : data.given_name,
+                    email               : data.email,
+                    profil              : data.picture,
+                    password            : hashPassword,
+                    email_verified_at   : new Date()
+                }
+
+               user = await userRepository.createUser(userInfos)
+               const oauthInfo = { provider: "google", provider_id : data.sub, user_id:user.id }
+               await oAuthAccountRepo.createOauthAccount(oauthInfo)
+            }
+           
+            const payload = { email: user.email, id: user.id }
+            const accessToken = jwtUtils.getAccessToken(payload)
+            const refreshToken = jwtUtils.createRefreshToken(payload)
+            const hashedRefreshToken = jwtUtils.hashToken(refreshToken)
+            const expires_at = new Date()
+            expires_at.setDate(expires_at.getDate() + 7)
+            const dataRefreshToken = { token: hashedRefreshToken, ...metadata, expires_at, user_id: user.id }
+            await tokenRefreshRepository.createRefreshToken(dataRefreshToken)
+
+            delete user['password']
+            if (!user.profil.startsWith('https://')) {
+                user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
+            }
+            await loginHistoryRepo.createHistory({ ...metadata, success: true, user_id: user.id })
+            return { success: true, data: { user, accessToken }, refreshToken }
+        } 
     }
 }
 

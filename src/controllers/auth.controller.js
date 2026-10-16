@@ -1,3 +1,5 @@
+const oauth = require('./../config/googleOauthClient.js')
+
 const authControllerFactory = (authService) => {
     return {
         async register(req, res, next) {
@@ -77,7 +79,7 @@ const authControllerFactory = (authService) => {
             } catch (err) { next(err) }
         },
 
-        async resetPassword(req, res, next) {            
+        async resetPassword(req, res, next) {
             try {
                 const result = await authService.resetPassword(req.body)
                 return res.json(result)
@@ -87,7 +89,7 @@ const authControllerFactory = (authService) => {
         async refresh(req, res, next) {
             const refreshToken = req.cookies?.refreshToken
             if (!refreshToken) {
-                return res.status(401).json({success:false, error:["You have to include cookie"]})
+                return res.status(401).json({ success: false, error: ["You have to include cookie"] })
             }
             try {
                 const result = await authService.refresh(refreshToken)
@@ -97,7 +99,51 @@ const authControllerFactory = (authService) => {
                     res.status(401).json(result)
                 }
             } catch (err) { next(err) }
+        },
+
+        async googleAuthStart(req, res, next) {
+            try {
+                const url = oauth.generateAuthUrl({
+                    access_type: 'offline',
+                    prompt: 'consent',
+                    scope: ['openid', 'email', 'profile', 'email'],
+                })
+                return res.redirect(url)
+            } catch (err) { next(err) }
+        },
+
+        async googleAuthCallback(req, res, next) {            
+            const code = req.query.code
+            const metadata = {ip :req.ip, }
+            try {
+                const { tokens } = await oauth.getToken(code)
+                if (!tokens.id_token) {
+                    return res.status(400).json({
+                        message: "No id_token is present"
+                    })
+                }
+                const ticket = await oauth.verifyIdToken(
+                    {
+                        idToken: tokens.id_token,
+                        audience: process.env.GOOGLE_CLIENT_ID
+                    }
+                )
+                const payload = ticket.getPayload()
+                console.log(payload);
+                const metadata = { ip_address: req.ip, user_agent: req.headers['user-agent'] }
+                const result = await authService.oauthRegistering(payload, metadata)
+                res.cookie('refreshToken', result.refreshToken, {
+                        maxAge: 7 * 24 * 60 * 60 * 1000,
+                        httpOnly: true,
+                        path: '/auth/',
+                        secure: process.env.NODE_ENV == 'production',
+                        sameSite: 'Lax'
+                    })
+                    return res.json({ success: true, data: result.data })
+                
+            } catch (err) { next(err) }
         }
+
     }
 }
 

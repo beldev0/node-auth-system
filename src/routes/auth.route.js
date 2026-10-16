@@ -14,21 +14,26 @@ const loginHistoryRepoFactory = require('./../repositories/loginHistory.reposito
 const userRepoFactory = require('./../repositories/user.repository.js')
 const refreshTokenRepoFactory = require('./../repositories/refreshtoken.repository.js')
 const authControllerFactory = require('./../controllers/auth.controller.js')
+const oauthRepoFactory = require('./../repositories/oauthAccountRepo.js')
 
 
 const userRepo = userRepoFactory(pool)
+const oauthRepo = oauthRepoFactory(pool)
 const blacklistedRepo = blacklistedRepoFactory(pool)
 const resetPasswordRepo = resetPasswordRepoFactory(pool)
 const refreshTokenRepo = refreshTokenRepoFactory(pool)
 const tokenVerificationRepo = tokenVerificationRepoFactory(pool)
 const loginHistoryRepo = loginHistoryRepoFactory(pool)
-const authService = authServiceFactory(userRepo, tokenVerificationRepo, refreshTokenRepo, loginHistoryRepo, blacklistedRepo, resetPasswordRepo)
+const authService = authServiceFactory(userRepo, tokenVerificationRepo, refreshTokenRepo, loginHistoryRepo, blacklistedRepo, resetPasswordRepo, oauthRepo)
 const authController = authControllerFactory(authService)
 
 const authCheckerMiddleware = authCheckerMiddlewareFactory(blacklistedRepo)
 
 
 router.post('/register', uploader.single('profil'), validatorMiddleware(userValidator.create),  authController.register)
+router.get('/google/callback/', authController.googleAuthCallback)
+router.get('/google', authController.googleAuthStart)
+
 router.post('/login', uploader.none() , validatorMiddleware(userValidator.login), authController.login)
 router.post('/logout', authCheckerMiddleware, authController.logout)  
 router.post('/refresh', authController.refresh)
