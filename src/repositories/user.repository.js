@@ -1,9 +1,9 @@
 function userRepoFactory(pool) {
     return {
-        async createUser({ email, lastname, firstname, password, profil }) {
+        async createUser({ email, lastname, firstname, password, profil, email_verified_at=null }) {
             const result = await pool.query(`
-                INSERT INTO users (email, lastname, firstname, password, profil) VALUES ($1, $2, $3, $4, $5) RETURNING id, lastname, firstname, email, created_at, profil, email_verified_at, disabled_at
-                `, [email, lastname, firstname, password, profil ?? 'https://www.pinterest.com/pin/912753049464898175/'])
+                INSERT INTO users (email, lastname, firstname, password, profil, email_verified_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, lastname, firstname, email, created_at, profil, email_verified_at, disabled_at
+                `, [email, lastname, firstname, password, profil ?? 'https://www.pinterest.com/pin/912753049464898175/', email_verified_at])
 
             return result.rows[0]
         },
@@ -57,6 +57,17 @@ function userRepoFactory(pool) {
                 UPDATE users SET password = $1 WHERE id = $2
                 `, [password, user_id])
             return result.rowsCount
+        },
+
+        async updateProfil({user_id, email, lastname, firstname}) {
+            const result = await pool.query(`
+                UPDATE users
+                SET email = COALESCE($1, email),
+                    lastname = COALESCE($2, lastname),
+                    firstname = COALESCE($3, firstname)
+                WHERE id = $4 RETURNING *
+                `, [email ?? null, lastname ?? null, firstname ?? null, user_id])
+            return result.rows[0]
         }
     }
 }
