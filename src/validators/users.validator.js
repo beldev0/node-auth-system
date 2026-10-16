@@ -31,6 +31,12 @@ const userValidator = {
         token : z.string(),
         user_id : z.string().or(z.int().positive()),
         newPassword : z.string().min(8, "8 characters min is required")
+    }),
+
+    editProfil : z.object({
+        email : z.email().optional(),
+        lastname : z.string().min(2, "2 characters is required").optional(),
+        firstname : z.string().min(2, "2 characters is required").optional(),
     })
 }
 
