@@ -34,6 +34,11 @@ router.post('/register', uploader.single('profil'), validatorMiddleware(userVali
 router.get('/google/callback/', authController.googleAuthCallback)
 router.get('/google', authController.googleAuthStart)
 
+router.post('/2fa/setup', authCheckerMiddleware, authController.setup2fa)
+router.post('/2fa/disabled', authCheckerMiddleware, authController.disable2Fa)
+router.post('/2fa/confirm', authCheckerMiddleware, authController.confirm2fa)
+router.post('/2fa/login', validatorMiddleware(userValidator.login2FA)  , authController.login2fa)
+
 router.post('/login', uploader.none() , validatorMiddleware(userValidator.login), authController.login)
 router.post('/logout', authCheckerMiddleware, authController.logout)  
 router.post('/refresh', authController.refresh)

@@ -19,6 +19,7 @@ function userRepoFactory(pool) {
                         u.created_at, 
                         u.disabled_at, 
                         u.email_verified_at, 
+                        u.two_factor_enabled_at,
                         count(rf.id) nbre_session
                 FROM users u
                 LEFT JOIN refresh_token rf
@@ -59,14 +60,26 @@ function userRepoFactory(pool) {
             return result.rowsCount
         },
 
-        async updateProfil({user_id, email, lastname, firstname}) {
+        async updateProfil({user_id, email, lastname, firstname, secret}) {
+            console.log(user_id);
+            
             const result = await pool.query(`
                 UPDATE users
                 SET email = COALESCE($1, email),
                     lastname = COALESCE($2, lastname),
-                    firstname = COALESCE($3, firstname)
-                WHERE id = $4 RETURNING *
-                `, [email ?? null, lastname ?? null, firstname ?? null, user_id])
+                    firstname = COALESCE($3, firstname),
+                    two_factor_secret = COALESCE($4, two_factor_secret)
+                WHERE id = $5 RETURNING *
+                `, [email ?? null, lastname ?? null, firstname ?? null, secret ?? null, user_id])
+            return result.rows[0]
+        },
+
+        async switchTwoFactor(user_id, value = null) {
+            const result = await pool.query(`
+                UPDATE users
+                SET two_factor_enabled_at = $1 
+                WHERE id = $2
+            `, [value, user_id])
             return result.rows[0]
         }
     }

@@ -23,6 +23,11 @@ const userValidator = {
         password : z.string("Password is required")
     }),
 
+    login2FA : z.object({
+        user_id : z.string("User ID is required"),
+        code : z.string().min(6, "Authenticator code is required")
+    }),
+
     forgotPassword : z.object({
         email : z.email()
     }),

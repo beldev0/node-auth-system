@@ -39,6 +39,11 @@ const authControllerFactory = (authService) => {
                 const metadata = { ip_address: req.ip, user_agent: req.headers['user-agent'] }
                 const result = await authService.login(credentials, metadata)
                 if (result.success) {
+                    console.log(result.data.user.two_factor_enabled_at);
+                    
+                    if (result.data.user.two_factor_enabled_at) {
+                        return res.json({success:true, mfa_required:true, user_id : result.data.user.id})
+                    }
                     res.cookie('refreshToken', result.refreshToken, {
                         maxAge: 7 * 24 * 60 * 60 * 1000,
                         httpOnly: true,
@@ -129,7 +134,7 @@ const authControllerFactory = (authService) => {
                     }
                 )
                 const payload = ticket.getPayload()
-                console.log(payload);
+                // console.log(payload);
                 const metadata = { ip_address: req.ip, user_agent: req.headers['user-agent'] }
                 const result = await authService.oauthRegistering(payload, metadata)
                 res.cookie('refreshToken', result.refreshToken, {
@@ -141,6 +146,63 @@ const authControllerFactory = (authService) => {
                     })
                     return res.json({ success: true, data: result.data })
                 
+            } catch (err) { next(err) }
+        },
+
+        async setup2fa(req, res, next) {
+            const { id } = req.user
+            try {
+                const result = await authService.setup2fa(id)
+                if (result.success) {
+                    return res.type('png').send(result.qr)
+                } 
+                return res.status(400).json(result)
+            } catch (err) { next(err) }
+        },
+
+        async disable2Fa(req, res, next) {
+            const { id } = req.user
+            try {
+                const result = await authService.disabled2fa(id)
+                if (result.success) {
+                    return res.send(result)
+                }
+                return res.status(400).send(result)
+            } catch (err) {next(err)}
+        },
+
+        async confirm2fa(req, res, next) {
+            const { id } = req.user
+            const codeAuth = req.body.code || null
+            if (!codeAuth) {
+                return res.status(400).json({"success":false, erorrs:["Authenticator code is missing"]})
+            }
+
+            try {
+                const result = await authService.verify2fa(code=codeAuth, user_id=id)
+                if (result.success) {
+                    return res.json(result)
+                } 
+                return res.status(400).json(result)
+            } catch (err) { next(err) }
+        },
+
+        async login2fa(req, res, next) {
+            const meta = { ip_address: req.ip, user_agent: req.headers['user-agent'] }
+
+            try {
+                const result = await authService.login2fa(code=req.body.code, user_id=req.body.user_id, metadata=meta)                
+                if (result.success) {
+                    res.cookie('refreshToken', result.refreshToken, {
+                        maxAge: 7 * 24 * 60 * 60 * 1000,
+                        secure : process.env.NODE_ENV == 'production',
+                        path: '/auth',
+                        httpOnly : true,
+                        sameSite: 'Lax'
+                    })
+                    return res.json({ success: true, data: result.data })
+                }
+                return res.json(result)
             } catch (err) { next(err) }
         }
 

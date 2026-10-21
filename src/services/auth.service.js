@@ -6,6 +6,9 @@ const { sendVerificationEmail, sendResetPasswordEmail } = require('./../utils/ma
 const path = require('path')
 const jwtUtils = require('../utils/jwtUtils.js')
 const jwt = require('jsonwebtoken')
+const { OTP } = require('otplib')
+const otp = new OTP({strategy: 'totp'})
+const QRCode = require('qrcode')
 
 const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo, resetPasswordRepo, oAuthAccountRepo) => {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
@@ -251,8 +254,87 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             }
             await loginHistoryRepo.createHistory({ ...metadata, success: true, user_id: user.id })
             return { success: true, data: { user, accessToken }, refreshToken }
-        } 
+        },
+
+        async setup2fa(user_id) {            
+            const user = await userRepository.getUserById(user_id)
+                        
+            if (user.two_factor_enabled_at) {
+                return {success:false, error:["Two factor already enabled"]}
+            }
+            
+            const secret = otp.generateSecret()
+            
+            const updatedInfos = {user_id:user.id, secret}
+            await userRepository.updateProfil(updatedInfos)
+            
+            const otpauth = otp.generateURI({
+                issuer : "AUTH SYS APP",
+                secret : secret,
+                label : user.email
+            })
+            console.log(otpauth);
+            
+            const dataURLBuffer = await QRCode.toBuffer(otpauth)
+
+            return { success:true, qr:dataURLBuffer }
+        },
+
+        async disabled2fa(user_id) {
+            const user = await userRepository.getUserById(user_id)
+            
+            if (!user.two_factor_enabled_at) {
+                return {success:false, error:["Two factor isn't enable"]}
+            }
+            await userRepository.switchTwoFactor(user_id=user.id, value=null)
+            return {success:true, message:["Two factor disabled"]}
+
+        },
+
+        async verify2fa(code, user_id) {
+            const user = await userRepository.getUserById(user_id)
+            if (user.two_factor_enabled_at) {
+                return {success:false, message:"2FA already enabled."}
+            }
+
+            const ok = await otp.verify({token :code, secret:user.two_factor_secret})
+            if (ok.valid) {
+                const enabled_at = new Date()
+                await userRepository.switchTwoFactor(user_id=user.id, value=enabled_at)
+                return {success:true, message:"2FA successfully enabled !"}
+            } else {
+                return {success:false, message:"2FA enabling failded. Code invalid"}
+            }
+        },
+
+        async login2fa(code, user_id, metadata) {
+            const user = await userRepository.getUserById(user_id)
+            const ok = await otp.verify({token:code, secret:user.two_factor_secret})
+            console.log(ok);
+            
+            if (ok.valid) {
+                const payload = { email: user.email, id: user.id }
+                const accessToken = jwtUtils.getAccessToken(payload)
+                const refreshToken = jwtUtils.createRefreshToken(payload)
+                const hashedRefreshToken = jwtUtils.hashToken(refreshToken)
+                const expires_at = new Date()
+                expires_at.setDate(expires_at.getDate() + 7)
+                const dataRefreshToken = { token: hashedRefreshToken, ...metadata, expires_at, user_id: user.id }
+                await tokenRefreshRepository.createRefreshToken(dataRefreshToken)
+
+                delete user['password']
+                if (!user.profil.startsWith('https://')) {
+                    user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
+                }
+                await loginHistoryRepo.createHistory({ ...metadata, success: true, user_id: user.id })
+                return { success: true, data: { user, accessToken }, refreshToken }
+            } 
+            return {success:false, errors: ['Authenticator code is invalid. Verification failed']}
+        }
+
+        
     }
+
 }
 
 module.exports = authServiceFactory
