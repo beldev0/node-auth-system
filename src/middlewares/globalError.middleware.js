@@ -1,4 +1,5 @@
 const multer = require("multer");
+const jwt = require('jsonwebtoken')
 
 const globalErrorMiddleware = (err, req, res, next) => {
     if (err) {
@@ -17,17 +18,20 @@ const globalErrorMiddleware = (err, req, res, next) => {
             }
         }
 
+        if (err instanceof jwt.JsonWebTokenError) {
+            if (err.name === 'TokenExpiredError') {
+                return res.status(401).json({"success":false, errors:["You access token already expired"]})
+            }
+        }
+
         if (err.constraint) {
             switch (err.constraint) {
                 case 'pk_user' : 
                     return res.status(400).json({"success":false, errors: "Invalid user reference"})
-                    break;
                 case 'uq_user_email' :
                     return res.status(409).json({"success":false, errors:"Email is already taken"})
-                    break;
                 case 'fk_user_id' :
                     return res.status(400).json({"success":false, errors: "Invalid user reference"})
-                    break;
                 default : 
                     return res.status(400).json({"success":false, errors:"Missing required field"})
             }
