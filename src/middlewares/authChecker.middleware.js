@@ -16,7 +16,7 @@ const authCheckerMiddleware = (blacklistRepo) => {
                 next({"statusCode": 401, name:"Custom Error", errors:"Access token provided are no longer valid"})
             }
 
-            const decoded = jwt.decode(token)
+            const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
             if (!decoded) {
                 next({ "statusCode": 401, name: "Token Error", errors: "Invalid access token provided" })
             }
