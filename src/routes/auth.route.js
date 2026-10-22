@@ -31,8 +31,12 @@ const authCheckerMiddleware = authCheckerMiddlewareFactory(blacklistedRepo)
 
 
 router.post('/register', uploader.single('profil'), validatorMiddleware(userValidator.create),  authController.register)
+
 router.get('/google/callback/', authController.googleAuthCallback)
 router.get('/google', authController.googleAuthStart)
+
+router.get('/github', authController.githubAuthStart)
+router.get('/github/callback', authController.githubAuthCallback)
 
 router.post('/2fa/setup', authCheckerMiddleware, authController.setup2fa)
 router.post('/2fa/disabled', authCheckerMiddleware, authController.disable2Fa)

@@ -7,11 +7,38 @@ const path = require('path')
 const jwtUtils = require('../utils/jwtUtils.js')
 const jwt = require('jsonwebtoken')
 const { OTP } = require('otplib')
-const otp = new OTP({strategy: 'totp'})
+const otp = new OTP({ strategy: 'totp' })
 const QRCode = require('qrcode')
+const axios = require('axios')
 
 const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshRepository, loginHistoryRepo, blacklistedTokenRepo, resetPasswordRepo, oAuthAccountRepo) => {
     const ALLOWED_MIME = ['image/png', 'image/jpeg', 'image/webp']
+
+    const issueAndSaveToken = async (payload, metadata, user) => {
+        // Issue access, refresh tokens and hashed the refresh token
+        const accessToken = jwtUtils.getAccessToken(payload)
+        const refreshToken = jwtUtils.createRefreshToken(payload)
+        const hashedRefreshToken = jwtUtils.hashToken(refreshToken)
+
+        // Save refresh token with expiration date
+
+        const expires_at = new Date()
+        expires_at.setDate(expires_at.getDate() + 7)
+        const data = { token: hashedRefreshToken, ...metadata, expires_at, user_id: user.id }
+        await tokenRefreshRepository.createRefreshToken(data)
+
+        return { accessToken, refreshToken }
+    }
+
+    const formatUserInfos = (user) => {
+        delete user['nbre_session']
+        delete user['password']
+        if (!user.profil.startsWith('https://')) {
+            user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
+        }
+        return user
+    }
+
     return {
         async register(data, profil = null) {
             let filename
@@ -47,7 +74,7 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             const verificationObj = { token, user_id: user.id, expires_at }
             await tokenVerificationRepo.createTokenVerification(verificationObj)
 
-            const href = `http://${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
+            const href = `${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
 
             const username = `${user.firstname} ${user.lastname}`
             await sendVerificationEmail(user.email, href, username)
@@ -97,7 +124,7 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                 const verificationObj = { token, user_id: user.id, expires_at }
                 await tokenVerificationRepo.createTokenVerification(verificationObj)
 
-                const href = `http://${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
+                const href = `${process.env.APP_HOST}/auth/${user.id}/verify/${token}`
 
                 const username = `${user.firstname} ${user.lastname}`
                 await sendVerificationEmail(user.email, href, username)
@@ -111,39 +138,21 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
 
             const user = await userRepository.getUserByEmail(email)
 
-            if (!user) {
-                return { success: false, error: "Email or password are invalid" }
-            }
+            if (!user) return { success: false, error: "Email or password are invalid" }
 
-            if (user.disabled_at) {
-                return { success: false, error: "Your account is currently disabled" }
-            }
+            if (user.disabled_at) return { success: false, error: "Your account is currently disabled" }
 
-            if (!user.email_verified_at) {
-                return { success: false, error: "Your account is not verified" }
-            }
+            if (!user.email_verified_at) return { success: false, error: "Your account is not verified" }
 
-            if (user.nbre_session == 2) {
-                return { success: false, error: "You already have 2 sessions ongoing." }
-            }
-
-
+            if (user.nbre_session == 2) return { success: false, error: "You already have 2 sessions ongoing." } 
+                
             if (bcrypt.compare(password, user.password)) {
                 const payload = { email: user.email, id: user.id }
-                const accessToken = jwtUtils.getAccessToken(payload)
-                const refreshToken = jwtUtils.createRefreshToken(payload)
-                const hashedRefreshToken = jwtUtils.hashToken(refreshToken)
-                const expires_at = new Date()
-                expires_at.setDate(expires_at.getDate() + 7)
-                const data = { token: hashedRefreshToken, ...metadata, expires_at, user_id: user.id }
-                await tokenRefreshRepository.createRefreshToken(data)
-
-                delete user['password']
-                if (!user.profil.startsWith('https://')) {
-                    user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
-                }
+                const { accessToken, refreshToken } = await issueAndSaveToken(payload, metadata, user)
+                const formatedUserData = formatUserInfos(user)
+               
                 await loginHistoryRepo.createHistory({ ...metadata, success: true, user_id: user.id })
-                return { success: true, data: { user, accessToken }, refreshToken }
+                return { success: true, data: { user : formatedUserData, accessToken }, refreshToken }
 
             } else {
                 await loginHistoryRepo.createHistory({ ...metadata, success: false, user_id: user.id })
@@ -170,7 +179,7 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
         },
 
         async forgotPassword(email) {
-            const user = await userRepository.getUserByEmail(email)            
+            const user = await userRepository.getUserByEmail(email)
             if (user) {
                 const token = crypto.randomBytes(12).toString('hex')
                 const expires_at = new Date()
@@ -183,9 +192,9 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
 
         },
 
-        async resetPassword({ token, newPassword, user_id }) {            
+        async resetPassword({ token, newPassword, user_id }) {
             const tokenLine = await resetPasswordRepo.getResetToken({ token, user_id })
-            
+
             if (!tokenLine) {
                 return { success: false, errors: ["User ID or token invalid"] }
             }
@@ -203,138 +212,154 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
             const hashedToken = jwtUtils.hashToken(refreshToken)
             const refreshTokenLine = await tokenRefreshRepository.getRefreshToken(hashedToken)
             if (!refreshTokenLine) {
-                return {success:false, error : ['Received invalid refresh token']}
+                return { success: false, error: ['Received invalid refresh token'] }
             }
 
             if (refreshTokenLine.revoked_at) {
-                return {success:false, error : ['Token already revoked']}
+                return { success: false, error: ['Token already revoked'] }
             }
 
             if (refreshTokenLine.expires_at.getTime() < Date.now()) {
-                return {success:false, error : ['Log in. Token expired !']}
+                return { success: false, error: ['Log in. Token expired !'] }
             }
 
             const decoded = jwt.decode(refreshToken, process.env.REFRESH_TOKEN_SECRET)
-            const payload = {id : decoded.id, email:decoded.email}
+            const payload = { id: decoded.id, email: decoded.email }
             const accessToken = jwtUtils.getAccessToken(payload)
-            return {success:true, accessToken:accessToken}
+            return { success: true, accessToken: accessToken }
         },
 
-        async oauthRegistering(data, metadata) {
+        async oauthRegistering(data, metadata, provider) {
+            let firstname, lastname;
+            console.log(data);
+
+            if (provider == 'github') {
+                const { name } = data
+                console.log(name.split(' '));
+
+                [firstname, lastname] = name.trim().split(' ')
+                console.log(firstname, lastname);
+
+                if (!firstname || !lastname) {
+                    return { success: false, errors: ["Your github informations are not well filled. Lastname or firstname missing"] }
+                }
+            }
             let user = await userRepository.getUserByEmail(data.email)
             if (!user) {
                 const randomPassword = crypto.randomBytes(8).toString('hex')
                 const hashPassword = await bcrypt.hash(randomPassword, 10)
                 const userInfos = {
-                    lastname            : data.family_name,
-                    firstname           : data.given_name,
-                    email               : data.email,
-                    profil              : data.picture,
-                    password            : hashPassword,
-                    email_verified_at   : new Date()
+                    lastname: data.family_name || lastname,
+                    firstname: data.given_name || firstname,
+                    email: data.email,
+                    profil: data.picture || data.avatar_url,
+                    password: hashPassword,
+                    email_verified_at: new Date()
                 }
 
-               user = await userRepository.createUser(userInfos)
-               const oauthInfo = { provider: "google", provider_id : data.sub, user_id:user.id }
-               await oAuthAccountRepo.createOauthAccount(oauthInfo)
+                user = await userRepository.createUser(userInfos)
+                const oauthInfo = { provider: provider, provider_id: data.sub || data.id, user_id: user.id }
+                await oAuthAccountRepo.createOauthAccount(oauthInfo)
             }
-           
-            const payload = { email: user.email, id: user.id }
-            const accessToken = jwtUtils.getAccessToken(payload)
-            const refreshToken = jwtUtils.createRefreshToken(payload)
-            const hashedRefreshToken = jwtUtils.hashToken(refreshToken)
-            const expires_at = new Date()
-            expires_at.setDate(expires_at.getDate() + 7)
-            const dataRefreshToken = { token: hashedRefreshToken, ...metadata, expires_at, user_id: user.id }
-            await tokenRefreshRepository.createRefreshToken(dataRefreshToken)
 
-            delete user['password']
-            if (!user.profil.startsWith('https://')) {
-                user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
-            }
+            const payload = { email: user.email, id: user.id }
+            const { accessToken, refreshToken } = await issueAndSaveToken(payload, metadata, user)
+
+            const formatedUserData = await formatUserInfos(user)
+            
             await loginHistoryRepo.createHistory({ ...metadata, success: true, user_id: user.id })
-            return { success: true, data: { user, accessToken }, refreshToken }
+            return { success: true, data: { user : formatUserInfos, accessToken }, refreshToken }
         },
 
-        async setup2fa(user_id) {            
+        async githubAuthCallback(code, metadata) {
+            try {
+                const tokenRes = await axios.post('https://github.com/login/oauth/access_token', {
+                    client_id: process.env.GITHUB_CLIENT_ID,
+                    client_secret: process.env.GITHUB_CLIENT_SECRET,
+                    code
+                }, 
+                {
+                    headers: { Accept: 'application/json' }
+                })
+                const access_token = tokenRes.data.access_token
+
+                const user = await axios.get('https://api.github.com/user', {
+                    headers: {
+                        Authorization: `Bearer ${access_token}`
+                    }
+                })
+                const result = await this.oauthRegistering(user.data, metadata, 'github')
+
+                return result
+            } catch (err) { throw err }
+        },
+
+        async setup2fa(user_id) {
             const user = await userRepository.getUserById(user_id)
-                        
+
             if (user.two_factor_enabled_at) {
-                return {success:false, error:["Two factor already enabled"]}
+                return { success: false, error: ["Two factor already enabled"] }
             }
-            
+
             const secret = otp.generateSecret()
-            
-            const updatedInfos = {user_id:user.id, secret}
+
+            const updatedInfos = { user_id: user.id, secret }
             await userRepository.updateProfil(updatedInfos)
-            
+
             const otpauth = otp.generateURI({
-                issuer : "AUTH SYS APP",
-                secret : secret,
-                label : user.email
+                issuer: "AUTH SYS APP",
+                secret: secret,
+                label: user.email
             })
             console.log(otpauth);
-            
+
             const dataURLBuffer = await QRCode.toBuffer(otpauth)
 
-            return { success:true, qr:dataURLBuffer }
+            return { success: true, qr: dataURLBuffer }
         },
 
         async disabled2fa(user_id) {
             const user = await userRepository.getUserById(user_id)
-            
+
             if (!user.two_factor_enabled_at) {
-                return {success:false, error:["Two factor isn't enable"]}
+                return { success: false, error: ["Two factor isn't enable"] }
             }
-            await userRepository.switchTwoFactor(user_id=user.id, value=null)
-            return {success:true, message:["Two factor disabled"]}
+            await userRepository.switchTwoFactor(user_id = user.id, value = null)
+            return { success: true, message: ["Two factor disabled"] }
 
         },
 
         async verify2fa(code, user_id) {
             const user = await userRepository.getUserById(user_id)
             if (user.two_factor_enabled_at) {
-                return {success:false, message:"2FA already enabled."}
+                return { success: false, message: "2FA already enabled." }
             }
 
-            const ok = await otp.verify({token :code, secret:user.two_factor_secret})
+            const ok = await otp.verify({ token: code, secret: user.two_factor_secret })
             if (ok.valid) {
                 const enabled_at = new Date()
-                await userRepository.switchTwoFactor(user_id=user.id, value=enabled_at)
-                return {success:true, message:"2FA successfully enabled !"}
+                await userRepository.switchTwoFactor(user_id = user.id, value = enabled_at)
+                return { success: true, message: "2FA successfully enabled !" }
             } else {
-                return {success:false, message:"2FA enabling failded. Code invalid"}
+                return { success: false, message: "2FA enabling failded. Code invalid" }
             }
         },
 
         async login2fa(code, user_id, metadata) {
             const user = await userRepository.getUserById(user_id)
-            const ok = await otp.verify({token:code, secret:user.two_factor_secret})
-            console.log(ok);
-            
+            const ok = await otp.verify({ token: code, secret: user.two_factor_secret })
+
             if (ok.valid) {
                 const payload = { email: user.email, id: user.id }
-                const accessToken = jwtUtils.getAccessToken(payload)
-                const refreshToken = jwtUtils.createRefreshToken(payload)
-                const hashedRefreshToken = jwtUtils.hashToken(refreshToken)
-                const expires_at = new Date()
-                expires_at.setDate(expires_at.getDate() + 7)
-                const dataRefreshToken = { token: hashedRefreshToken, ...metadata, expires_at, user_id: user.id }
-                await tokenRefreshRepository.createRefreshToken(dataRefreshToken)
-
-                delete user['password']
-                if (!user.profil.startsWith('https://')) {
-                    user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
-                }
+                const { accessToken, refreshToken } = await issueAndSaveToken(payload, metadata, user)
+                const formatedUserData = formatUserInfos(user)
+                
                 await loginHistoryRepo.createHistory({ ...metadata, success: true, user_id: user.id })
-                return { success: true, data: { user, accessToken }, refreshToken }
-            } 
-            return {success:false, errors: ['Authenticator code is invalid. Verification failed']}
+                return { success: true, data: { user : formatedUserData, accessToken }, refreshToken }
+            }
+            return { success: false, errors: ['Authenticator code is invalid. Verification failed'] }
         }
-
-        
     }
-
 }
 
 module.exports = authServiceFactory

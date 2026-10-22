@@ -60,9 +60,7 @@ function userRepoFactory(pool) {
             return result.rowsCount
         },
 
-        async updateProfil({user_id, email, lastname, firstname, secret}) {
-            console.log(user_id);
-            
+        async updateProfil({user_id, email, lastname, firstname, secret}) {            
             const result = await pool.query(`
                 UPDATE users
                 SET email = COALESCE($1, email),
