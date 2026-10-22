@@ -10,7 +10,6 @@ const authCheckerMiddleware = (blacklistRepo) => {
         }
         try {
             const blacklistLine = await blacklistRepo.getBlacklistLine(token)
-            console.log(blacklistLine);
             
             if (blacklistLine) {
                 next({"statusCode": 401, name:"Custom Error", errors:"Access token provided are no longer valid"})
