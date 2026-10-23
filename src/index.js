@@ -19,8 +19,8 @@ const authCheckerMiddleware = authCheckerMiddlewareFactory(blacklistedRepo)
 
 const limit = rateLimiter({
     windowMs : 15 * 60 * 1000, // 15 min,
-    limit : 3,
     legacyHeaders: false,
+    limit : 50,
     message : {success:false, errors:["We have received too many requests from your IP"]}
 })
 
