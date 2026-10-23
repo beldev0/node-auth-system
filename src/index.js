@@ -1,6 +1,7 @@
 require('dotenv').config()
 const express = require('express')
 const cookieParser = require('cookie-parser')
+const rateLimiter = require('express-rate-limit')
 const pool = require('./config/db.js')
 
 const { createPublicsFolder } = require('./config/bootstrap.js')
@@ -14,9 +15,16 @@ const authCheckerMiddlewareFactory = require('./middlewares/authChecker.middlewa
 const blacklistedRepo = blacklistedTokenRepoFactory(pool)
 const authCheckerMiddleware = authCheckerMiddlewareFactory(blacklistedRepo)
 
+// Implement Rate limiting (50req / 15min)
+
+const limit = rateLimiter({
+    windowMs : 15 * 60 * 1000, // 15 min,
+    limit : 50,
+    message : {success:false, errors:["We have received too many requests from your IP"]}
+})
 
 const app = express();
-
+app.use(limit)
 app.use(cookieParser())
 app.use(express.json())
 
