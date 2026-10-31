@@ -26,7 +26,13 @@
     "nodemailer": "^10.0.14",
     "otplib": "^13.5.0",
     "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "pino-correlation-id": "^1.0.0",
+    "pino-http": "^11.0.0",
     "qrcode": "^1.5.4",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.2.0"
   }
 }
