@@ -10,10 +10,10 @@ const loginHistoryRepoFactory = (pool) => {
 
         async getLoginHistory() {
             const result = await pool.query(`
-                SELECT lh.id, lh.ip_address, lh.user_agent, u.firstname, u.lastname, u.email
+                SELECT lh.id, lh.ip_address, lh.user_agent, lh.success, u.firstname, u.lastname, u.email
                 FROM login_history lh
                 INNER JOIN users u
-                ON lh.user_id = users.id
+                ON lh.user_id = u.id
                 `)
             return result.rows
         }
