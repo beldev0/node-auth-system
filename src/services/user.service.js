@@ -1,7 +1,7 @@
 const UserServiceFactory = (userRepo) => {
     const formatUserInfos = (user) => {
         user['nbre_session'] ? delete user['nbre_session'] : null
-        delete user['password']
+        user['password'] ? delete user['password'] : null
         if (!user.profil.startsWith('https://')) {
             user.profil = `${process.env.APP_HOST}/profil/${user.profil}`
         }
@@ -17,7 +17,8 @@ const UserServiceFactory = (userRepo) => {
 
         async updateProfil(data) {
             const user = await userRepo.updateProfil(data)
-            return user
+            const formatUser = formatUserInfos(user)
+            return formatUser
         }
     }
 }

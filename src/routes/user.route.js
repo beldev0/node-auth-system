@@ -11,7 +11,6 @@ const userRepo = userRepoFactory(pool)
 const userService = userServiceFactory(userRepo)
 const userController = userControllerFactory(userService)
 
-
 router.get('', userController.me)
 router.patch('', validatorMiddleware(editProfil) , userController.updateProfil)
 
