@@ -197,7 +197,8 @@ const authServiceFactory = (userRepository, tokenVerificationRepo, tokenRefreshR
                 return { success: false, error: "You already have 2 sessions ongoing." }
             }
 
-            if (bcrypt.compare(password, user.password)) {
+            const isValidPassword = await bcrypt.compare(password, user.password)
+            if (isValidPassword) {
                 const payload = { email: user.email, id: user.id, role: user.role }
                 const { accessToken, refreshToken } = await issueAndSaveToken(payload, metadata, user)
                 const formatedUserData = formatUserInfos(user)
