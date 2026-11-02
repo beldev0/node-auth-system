@@ -1,9 +1,12 @@
 const multer = require("multer");
 const jwt = require('jsonwebtoken')
+const { getLogger } = require('pino-correlation-id')
+const pinoLogger = require('./../config/logger.js')
 
 const globalErrorMiddleware = (err, req, res, next) => {
+    const log = getLogger(pinoLogger)
     if (err) {
-        console.log(err);
+       log.error({err})
         if (err.name && err.name == "Custom Error") {            
             return res.status(err.statusCode).json({"success":false, errors:err.errors})
         }
