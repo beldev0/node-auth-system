@@ -1,0 +1,303 @@
+{
+  "info": {
+    "name": "Node.js Auth API",
+    "description": "Complete authentication API — register, login, refresh, 2FA, OAuth, admin",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "accessToken", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "verificationToken", "value": "" },
+    { "key": "resetToken", "value": "" },
+    { "key": "totpSecret", "value": "" },
+    { "key": "mfaUserId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data.user) {",
+                  "  pm.collectionVariables.set('userId', res.data.user.id);",
+                  "  console.log('userId saved:', res.data.user.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"lastname\": \"Doe\",\n  \"firstname\": \"John\",\n  \"password\": \"Password123!\",\n  \"confirm_password\": \"Password123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  console.log('accessToken saved');",
+                  "}",
+                  "if (res.success && res.mfa_required) {",
+                  "  pm.collectionVariables.set('mfaUserId', res.user_id);",
+                  "  console.log('MFA required, userId saved');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"Password123!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Email Verification",
+      "item": [
+        {
+          "name": "Verify Account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/{{userId}}/verify/{{verificationToken}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Password Reset",
+      "item": [
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"user_id\": \"{{userId}}\",\n  \"newPassword\": \"NewPassword123!\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "OAuth",
+      "item": [
+        {
+          "name": "Get OAuth Links",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/oauth-links"
+          }
+        },
+        {
+          "name": "Google Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/google/callback?code=AUTHORIZATION_CODE"
+          }
+        },
+        {
+          "name": "GitHub Callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/github/callback?code=AUTHORIZATION_CODE"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2FA",
+      "item": [
+        {
+          "name": "Setup 2FA",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data.secret) {",
+                  "  pm.collectionVariables.set('totpSecret', res.data.secret);",
+                  "  console.log('TOTP secret saved:', res.data.secret);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/auth/2fa/setup"
+          }
+        },
+        {
+          "name": "Confirm 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/auth/2fa/confirm",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2FA Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data.accessToken) {",
+                  "  pm.collectionVariables.set('accessToken', res.data.accessToken);",
+                  "  console.log('accessToken saved after 2FA');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/2fa/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{mfaUserId}}\",\n  \"code\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Disable 2FA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/auth/2fa/disable"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/users"
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lastname\": \"NewLastname\",\n  \"firstname\": \"NewFirstname\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/admin/sessions"
+          }
+        },
+        {
+          "name": "Login History",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": "{{baseUrl}}/admin/histories"
+          }
+        }
+      ]
+    }
+  ]
+}
