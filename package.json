@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "migrate": "node-pg-migrate"
+    "migrate": "node-pg-migrate",
+    "dev" : "node src/index.js",
+    "start" : "npm run migrate up && node src/index.js"
   },
   "keywords": [],
   "author": "",
