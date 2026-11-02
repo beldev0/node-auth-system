@@ -1,36 +1,30 @@
 const oauth = require('./../config/googleOauthClient.js')
-const axios = require('axios')
+const logger = require('./../config/logger.js')
 
 const authControllerFactory = (authService) => {
     return {
         async register(req, res, next) {
             try {
                 const result = await authService.register(req.body, req.file)
-                if (result.success) {
-                    return res.status(201).json(result)
-                }
-                return res.status(400).json(result)
+                // req.log.debug({result}, 'Register controller method')
+                const status = result.success ? 201 : 400
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
         async verify(req, res, next) {
             try {
                 const result = await authService.verify(req.params)
-                if (result.success) {
-                    return res.json(result)
-                } else {
-                    return res.status(400).json(result)
-                }
+                const status = result.success ? 200 : 400
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
         async resend_verification_mail(req, res, next) {
             try {
                 const result = await authService.resend_verification_mail(req.params.id)
-                if (result.success) {
-                    return res.json(result)
-                }
-                return res.status(400).json(result)
+                const status = result.success ? 200 : 400
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
@@ -40,11 +34,11 @@ const authControllerFactory = (authService) => {
                 const metadata = { ip_address: req.ip, user_agent: req.headers['user-agent'] }
                 const result = await authService.login(credentials, metadata)
                 if (result.success) {
-                    console.log(result.data.user.two_factor_enabled_at);
 
                     if (result.data.user.two_factor_enabled_at) {
                         return res.json({ success: true, mfa_required: true, user_id: result.data.user.id })
                     }
+
                     res.cookie('refreshToken', result.refreshToken, {
                         maxAge: 7 * 24 * 60 * 60 * 1000,
                         httpOnly: true,
@@ -74,14 +68,12 @@ const authControllerFactory = (authService) => {
             } catch (err) { next(err) }
         },
 
-        async forgotPassword(req, res, next) {
+        async forgotPassword(req, res, next) {  
+            req.log.info('')          
             try {
                 const result = await authService.forgotPassword(req.body.email)
-                if (result.success) {
-                    return res.json(result)
-                }
-                return res.status(404).json(result)
-
+                const status = result.success ? 200 : 404 // 404 for user account not found
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
@@ -99,22 +91,21 @@ const authControllerFactory = (authService) => {
             }
             try {
                 const result = await authService.refresh(refreshToken)
-                if (result.success) {
-                    res.json(result)
-                } else {
-                    res.status(401).json(result)
-                }
+                const status = result.success ? 200 : 401
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
-        async googleAuthStart(req, res, next) {
+        async getOauthLink(req, res, next) {
             try {
-                const url = oauth.generateAuthUrl({
+                const googleLink = oauth.generateAuthUrl({
                     access_type: 'offline',
                     prompt: 'consent',
                     scope: ['openid', 'email', 'profile', 'email'],
                 })
-                return res.redirect(url)
+                const githubLink = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&redirect_uri=${process.env.GITHUB_REDIRECT_URI}&scope=user`
+                res.json({"success":true, data: {googleLink, githubLink}})
+                req.log.info('Oauth link generated and sent')
             } catch (err) { next(err) }
         },
 
@@ -137,21 +128,19 @@ const authControllerFactory = (authService) => {
                 )
                 const payload = ticket.getPayload()
                 const result = await authService.oauthRegistering(payload, metadata, 'google')
-                res.cookie('refreshToken', result.refreshToken, {
-                    maxAge: 7 * 24 * 60 * 60 * 1000,
-                    httpOnly: true,
-                    path: '/auth/',
-                    secure: process.env.NODE_ENV == 'production',
-                    sameSite: 'Lax'
-                })
-                return res.json({ success: true, data: result.data })
+                if (result.success) {
+                    res.cookie('refreshToken', result.refreshToken, {
+                        maxAge: 7 * 24 * 60 * 60 * 1000,
+                        httpOnly: true,
+                        path: '/auth/',
+                        secure: process.env.NODE_ENV == 'production',
+                        sameSite: 'Lax'
+                    })
+                    return res.json({ success: true, data: result.data })
+                } 
+                return res.json(result)
 
             } catch (err) { next(err) }
-        },
-
-        githubAuthStart(req, res) {
-            const url = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_CLIENT_ID}&redirect_uri=${process.env.GITHUB_REDIRECT_URI}&scope=user`
-            res.redirect(url)
         },
 
         async githubAuthCallback(req, res, next) {
@@ -181,10 +170,8 @@ const authControllerFactory = (authService) => {
             const { id } = req.user
             try {
                 const result = await authService.setup2fa(id)
-                if (result.success) {
-                    return res.type('png').send(result.qr)
-                }
-                return res.status(400).json(result)
+                const status = result.success ? 200 : 400
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
@@ -192,10 +179,8 @@ const authControllerFactory = (authService) => {
             const { id } = req.user
             try {
                 const result = await authService.disabled2fa(id)
-                if (result.success) {
-                    return res.send(result)
-                }
-                return res.status(400).send(result)
+                const status = result.success ? 200 : 400
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 
@@ -208,10 +193,8 @@ const authControllerFactory = (authService) => {
 
             try {
                 const result = await authService.verify2fa(code = codeAuth, user_id = id)
-                if (result.success) {
-                    return res.json(result)
-                }
-                return res.status(400).json(result)
+                const status = result.success ? 200 : 400
+                return res.status(status).json(result)
             } catch (err) { next(err) }
         },
 

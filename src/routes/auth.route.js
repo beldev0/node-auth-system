@@ -16,7 +16,6 @@ const refreshTokenRepoFactory = require('./../repositories/refreshtoken.reposito
 const authControllerFactory = require('./../controllers/auth.controller.js')
 const oauthRepoFactory = require('./../repositories/oauthAccountRepo.js')
 
-
 const userRepo = userRepoFactory(pool)
 const oauthRepo = oauthRepoFactory(pool)
 const blacklistedRepo = blacklistedRepoFactory(pool)
@@ -29,17 +28,14 @@ const authController = authControllerFactory(authService)
 
 const authCheckerMiddleware = authCheckerMiddlewareFactory(blacklistedRepo)
 
-
 router.post('/register', uploader.single('profil'), validatorMiddleware(userValidator.create),  authController.register)
 
+router.get('/oauth-links', authController.getOauthLink)
 router.get('/google/callback/', authController.googleAuthCallback)
-router.get('/google', authController.googleAuthStart)
-
-router.get('/github', authController.githubAuthStart)
 router.get('/github/callback', authController.githubAuthCallback)
 
 router.post('/2fa/setup', authCheckerMiddleware, authController.setup2fa)
-router.post('/2fa/disabled', authCheckerMiddleware, authController.disable2Fa)
+router.post('/2fa/disable', authCheckerMiddleware, authController.disable2Fa)
 router.post('/2fa/confirm', authCheckerMiddleware, authController.confirm2fa)
 router.post('/2fa/login', validatorMiddleware(userValidator.login2FA)  , authController.login2fa)
 
