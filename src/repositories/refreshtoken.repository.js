@@ -17,6 +17,16 @@ function refreshTokenRepoFactory (pool) {
                 SELECT revoked_at, expires_at, user_id FROM refresh_token WHERE token = $1
                 `, [token])
             return result.rows[0]
+        },
+
+        async getActiveSession() {
+            const result = await pool.query(`
+                SELECT u.lastname, u.firstname, rt.user_agent, rt.ip_address, rt.created_at
+                FROM refresh_token rt
+                INNER JOIN users u
+                ON rt.user_id = u.id
+            `)
+            return result.rows
         }
     }
 }
