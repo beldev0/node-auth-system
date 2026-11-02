@@ -1,9 +1,9 @@
 function userRepoFactory(pool) {
     return {
-        async createUser({ email, lastname, firstname, password, profil, email_verified_at=null }) {
+        async createUser({ email, lastname, firstname, password, profil, email_verified_at=null, role='std' }) {
             const result = await pool.query(`
-                INSERT INTO users (email, lastname, firstname, password, profil, email_verified_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, lastname, firstname, email, created_at, profil, email_verified_at, disabled_at
-                `, [email, lastname, firstname, password, profil ?? 'https://www.pinterest.com/pin/912753049464898175/', email_verified_at])
+                INSERT INTO users (email, lastname, firstname, password, profil, email_verified_at, role) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, lastname, firstname, email, created_at, profil, email_verified_at, disabled_at, role
+                `, [email, lastname, firstname, password, profil ?? 'https://www.pinterest.com/pin/912753049464898175/', email_verified_at, role])
 
             return result.rows[0]
         },
@@ -14,6 +14,7 @@ function userRepoFactory(pool) {
                         u.profil,
                         u.lastname, 
                         u.id,
+                        u.role,
                         u.password,
                         u.firstname, 
                         u.created_at, 
@@ -78,6 +79,24 @@ function userRepoFactory(pool) {
                 SET two_factor_enabled_at = $1 
                 WHERE id = $2
             `, [value, user_id])
+            return result.rows[0]
+        },
+
+        async disableAccount(id) {            
+            const result = await pool.query(`
+                UPDATE users
+                SET disabled_at = NOW()
+                WHERE id = $1
+                `, [id])
+            return result.rows[0]
+        },
+
+        async adminExist() {
+            const result = await pool.query(`
+                SELECT 1
+                FROM users
+                WHERE role = 'admin'
+            `)
             return result.rows[0]
         }
     }
