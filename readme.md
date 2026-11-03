@@ -389,3 +389,36 @@ Requires authentication. Allows the user to update `email`, `lastname`, and `fir
   ]
 }
 ```
+## Getting Started
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/beldev0/node-auth-system
+cd node-auth-system
+```
+
+### 2. Configure environment variables
+Create your `.env` file from the provided skeleton:
+```bash
+cp example.env .env
+```
+Then open `.env` and fill in the required values (database credentials, JWT secrets, OAuth credentials, SMTP settings — see [Environment Variables](#environment-variables)).
+
+### 3. Start the stack
+```bash
+docker compose up -d
+```
+This builds and starts the API and the PostgreSQL database in detached mode.
+
+### 4. Verify it's running
+```bash
+docker compose ps
+curl http://localhost:PORT/health
+```
+
+### 5. Stop the stack
+```bash
+docker compose down          # stop containers
+docker compose down -v       # stop and remove volumes (wipes the database)
+```
+
